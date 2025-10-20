@@ -1,0 +1,157 @@
+---
+title: "Lecture 7: Data Cleaning and Type Conversion in R"
+format: html
+---
+
+## 📦 Setup
+
+In this lecture, we will work with data that requires cleaning before it can be analyzed. We will on focus issues that arise for quantitative variables.
+
+```{r}
+library(tidyverse)
+library(dslabs)
+library(rvest) #install this package 
+
+url <- paste0("https://en.wikipedia.org/w/index.php?title=",
+              "Gun_violence_in_the_United_States_by_state",
+              "&direction=prev&oldid=810166167")
+
+murders_raw <- read_html(url) |>
+  html_node("table") |>
+  html_table() |>
+  setNames(c("state", "population", "total", "murder_rate"))
+```
+
+We'll load several real-world datasets from the web:
+
+```{r}
+coverage <- read_csv('https://raw.githubusercontent.com/opencasestudies/ocs-healthexpenditure/master/data/KFF/healthcare-coverage.csv', 
+                     skip = 2,
+                     n_max  = 52)
+
+transit_cost <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-05/transit_cost.csv')
+
+data(table3)
+
+
+
+nyc_squirrels <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-10-29/nyc_squirrels.csv")
+```
+
+------------------------------------------------------------------------
+
+## 🧩 Handling Variable Names That Break the Rules
+
+Some variable names in R contain spaces, punctuation, or start with numbers. These must be surrounded by **backticks**.
+
+```{r}
+large_uninsured_states <- coverage %>%
+  filter(Location != "United States") %>%
+  filter(`2016__Uninsured` >= 1000000)
+```
+
+> 🧠 Use backticks `` `varname` `` when variable names: - Start with a number - Contain punctuation or spaces
+
+------------------------------------------------------------------------
+
+## 🔁 Coercing Character to Numeric with `as.numeric()`
+
+We can clean up character columns that look like numbers and convert them.
+
+```{r}
+coverage_coerce <- coverage %>%
+  mutate(`2016__Other Public` = as.numeric(`2016__Other Public`),
+         `2015__Other Public` = as.numeric(`2015__Other Public`),
+         `2014__Other Public` = as.numeric(`2014__Other Public`),
+         `2013__Other Public` = as.numeric(`2013__Other Public`))
+```
+
+> ✅ Multiple new variables can be created in a single `mutate()` call.
+
+> **Exercise:**\
+> Examine the `transit_cost` dataset. Which variables are numeric but should be character? What are the non-numeric characters?
+
+## ⚠️ When You Should NOT Use `as.numeric()`
+
+The `rate` variable in `table3` looks numeric but contains a **text ratio** like `"3/1000"`.
+
+```{r}
+table3_coercion <- table3 %>%
+  mutate(rate = as.numeric(rate))
+```
+
+> ⚠️ This produces `NA` because `"3/1000"` isn't a valid numeric string.
+
+------------------------------------------------------------------------
+
+## ✂️ Splitting Columns with `separate()`
+
+Use `separate()` to split a character column (like `"3/1000"`) into two numeric variables.
+
+```{r}
+table3_separated <- table3 %>%
+  separate(col = rate,
+           into = c("cases", "population"),
+           sep = "/",
+           convert = TRUE)
+```
+
+> ✅ `convert = TRUE` tells R to automatically coerce the new columns to numeric.
+
+## Exercise
+
+Calculate the mean of the `tunnel_per` variable by country. Sort the countries from highest to lowest mean tunnel percentage
+
+```{r}
+
+
+```
+
+## 🧹 Cleaning Characters from Text Fields
+
+Use `str_replace_all()` to remove symbols like commas or percent signs.
+
+```{r}
+murders_clean <- murders_raw %>%
+  mutate(new_population = str_replace_all(population, ",", ""),
+         numeric_population = as.numeric(new_population))
+```
+
+------------------------------------------------------------------------
+
+## Exercise
+
+Remove the non-numeric characters from the `tunnel_per` variable in `transit_cost` , then coerce to numeric.
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+## 📆 Working with Dates Using `lubridate`
+
+We can convert a character column to a date using `mdy()`.
+
+```{r}
+squirrel_date <- nyc_squirrels %>%
+  mutate(date_converted = mdy(date))
+```
+
+This makes it easy to extract components like **month**:
+
+```{r}
+squirrel_month <- squirrel_date %>%
+  mutate(month_factor = month(date_converted, label = TRUE),
+         month_num = month(date_converted, label = FALSE))
+```
+
+------------------------------------------------------------------------
+
+> **Exercise:**\
+> Pull out the **day of the week** as a factor variable.\
+> Create a bar plot of **squirrel sightings by day of the week**, filled by `shift`.
+
+```{r}
+
+```
